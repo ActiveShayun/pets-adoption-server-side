@@ -13,7 +13,7 @@ const port = process.env.PORT || 5000
 app.use(cors({
     origin: [
         'https://adoption-auth.web.app',
-        'http://localhost:5173'
+        'http://localhost:5174'
     ],
     credentials: true
 }))
@@ -43,6 +43,7 @@ async function run() {
         const userCollection = client.db('PetsDB').collection('users')
         const donationCollection = client.db('PetsDB').collection('CreateDonation')
         const provideDonationCollection = client.db('PetsDB').collection('provideDonation')
+        const reviewCollection = client.db('PetsDB').collection('allReview')
 
         // jwt related api
         app.post('/jwt', (req, res) => {
@@ -427,10 +428,20 @@ async function run() {
             res.send(result)
         })
 
+        // add review api
+        app.post('/addReview', async (req, res) => {
+            const review = req.body;
+            const result = await reviewCollection.insertOne(review);
+            res.send(result)
+        })
 
+        app.get('/review', async (req, res) => {
+            const result = await reviewCollection.find().toArray()
+            res.send(result)
+        })
         // Send a ping to confirm a successful connection
 
-        // con  await client.db("admin").command({ ping: 1 });sole.log("Pinged your deployment. You successfully connected to MongoDB!");
+        await client.db("admin").command({ ping: 1 }); console.log("Pinged your deployment. You successfully connected to MongoDB!");
     } finally {
         // Ensures that the client will close when you finish/error
         // await client.close();
