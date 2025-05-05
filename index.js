@@ -12,8 +12,8 @@ const port = process.env.PORT || 5000
 
 app.use(cors({
     origin: [
-        'https://adoption-auth.web.app',
-        'http://localhost:5174'
+        // 'https://adoption-auth.web.app',
+        'http://localhost:5173'
     ],
     credentials: true
 }))
@@ -36,7 +36,7 @@ const client = new MongoClient(uri, {
 async function run() {
     try {
         // Connect the client to the server	(optional starting in v4.7)
-        // await client.connect();
+        await client.connect();
 
         const petsCollections = client.db('PetsDB').collection('all-pets')
         const adoptedRequestCollections = client.db('PetsDB').collection('adoptedRequest')
@@ -118,6 +118,14 @@ async function run() {
             }
             // console.log('admin', admin);
             res.send({ admin })
+        })
+
+        app.get('/single-User', async (req, res) => {
+            const email = req.query.email;
+            const query = { email: email }
+            console.log('user emmmail', query);
+            const result = await userCollection.findOne(query)
+            res.send(result)
         })
 
         app.patch('/make-admin/:id', async (req, res) => {
@@ -441,8 +449,8 @@ async function run() {
         })
         // Send a ping to confirm a successful connection
 
-        // await client.db("admin").command({ ping: 1 });
-        //  console.log("Pinged your deployment. You successfully connected to MongoDB!");
+        await client.db("admin").command({ ping: 1 });
+        console.log("Pinged your deployment. You successfully connected to MongoDB!");
     } finally {
         // Ensures that the client will close when you finish/error
         // await client.close();
