@@ -12,8 +12,8 @@ const port = process.env.PORT || 5000
 
 app.use(cors({
     origin: [
-        // 'https://adoption-auth.web.app',
-        'http://localhost:5173'
+        'https://adoption-auth.web.app/',
+        // 'http://localhost:5173'
     ],
     credentials: true
 }))
