@@ -13,7 +13,7 @@ const port = process.env.PORT || 5000
 app.use(cors({
     origin: [
         'https://adoption-auth.web.app',
-        // 'http://localhost:5173'
+        'http://localhost:5173'
     ],
     credentials: true
 }))
@@ -142,6 +142,21 @@ async function run() {
 
         app.get('/all-users', async (req, res) => {
             const result = await userCollection.find().toArray();
+            res.send(result)
+        })
+
+        app.put('/updateProfile/:id', async (req, res) => {
+            const id = req.params.id;
+            const query = { _id: new ObjectId(id) };
+            const user = req.body;
+            const updateDoc = {
+                $set: {
+                    name: user.name,
+                    email: user.email,
+                    userPhoto: user.photo
+                }
+            }
+            const result = await userCollection.updateOne(query, updateDoc);
             res.send(result)
         })
 
