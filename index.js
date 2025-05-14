@@ -479,6 +479,6 @@ app.get('/', (req, res) => {
 })
 
 app.listen(port, () => {
-    console.log(`PETS ADOPTION SERVER IS RUNNING on ${port}`);
+    // console.log(`PETS ADOPTION SERVER IS RUNNING on ${port}`);
 })
 
