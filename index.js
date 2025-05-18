@@ -36,7 +36,7 @@ const client = new MongoClient(uri, {
 async function run() {
     try {
         // Connect the client to the server	(optional starting in v4.7)
-        // await client.connect();
+        await client.connect();
 
         const petsCollections = client.db('PetsDB').collection('all-pets')
         const adoptedRequestCollections = client.db('PetsDB').collection('adoptedRequest')
@@ -49,7 +49,7 @@ async function run() {
         app.post('/jwt', (req, res) => {
             const user = req.body;
             const token = jwt.sign(user, process.env.SECRET_ACCESS_TOKEN,
-                { expiresIn: '2h' })
+                { expiresIn: '2d' })
             res.send({ token })
         })
 
@@ -462,10 +462,26 @@ async function run() {
             const result = await reviewCollection.find().toArray()
             res.send(result)
         })
+
+        // status and analytics
+        app.get('/admin-status', async (req, res) => {
+            const users = await userCollection.estimatedDocumentCount();
+            const allPets = await petsCollections.estimatedDocumentCount();
+            const donationCampaigns = await donationCollection.estimatedDocumentCount();
+            const adoptedRequest = await adoptedRequestCollections.estimatedDocumentCount();
+            const provideDonationCollections = await provideDonationCollection.estimatedDocumentCount();
+            res.send({
+                users,
+                allPets,
+                donationCampaigns,
+                adoptedRequest,
+                provideDonationCollections
+            })
+        })
         // Send a ping to confirm a successful connection
 
-        // await client.db("admin").command({ ping: 1 });
-        // console.log("Pinged your deployment. You successfully connected to MongoDB!");
+        await client.db("admin").command({ ping: 1 });
+        console.log("Pinged your deployment. You successfully connected to MongoDB!");
     } finally {
         // Ensures that the client will close when you finish/error
         // await client.close();
@@ -479,6 +495,6 @@ app.get('/', (req, res) => {
 })
 
 app.listen(port, () => {
-    // console.log(`PETS ADOPTION SERVER IS RUNNING on ${port}`);
+    console.log(`PETS ADOPTION SERVER IS RUNNING on ${port}`);
 })
 
