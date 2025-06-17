@@ -12,8 +12,8 @@ const port = process.env.PORT || 5000
 
 app.use(cors({
     origin: [
-        'https://adoption-auth.web.app',
         'http://localhost:5173',
+        'https://adoption-auth.web.app',
     ],
     credentials: true
 }))
@@ -48,9 +48,15 @@ async function run() {
         // jwt related api
         app.post('/jwt', (req, res) => {
             const user = req.body;
-            const token = jwt.sign(user, process.env.SECRET_ACCESS_TOKEN,
-                { expiresIn: '2d' })
-            res.send({ token })
+            console.log('SECRET_ACCESS_TOKEN', process.env.SECRET_ACCESS_TOKEN);
+            const taken = jwt.sign(user, process.env.SECRET_ACCESS_TOKEN, {
+                expiresIn: '5h'
+            })
+            res.cookie('token', taken, {
+                httpOnly: true,
+                secure: false
+            })
+                .send({ success: true })
         })
 
         const verifyToken = (req, res, next) => {
@@ -192,7 +198,7 @@ async function run() {
         app.get('/my-added-pets', async (req, res) => {
             const email = req?.query?.email
             const query = { email: email };
-
+            console.log('cookie', req.cookies);
             const totalPage = parseInt(req?.query?.totalPage)
             // console.log('page', totalPage);
             const currentPage = parseInt(req?.query?.currentPage);
@@ -480,8 +486,8 @@ async function run() {
         })
         // Send a ping to confirm a successful connection
 
-        // await client.db("admin").command({ ping: 1 });
-        // console.log("Pinged your deployment. You successfully connected to MongoDB!");
+        await client.db("admin").command({ ping: 1 });
+        console.log("Pinged your deployment. You successfully connected to MongoDB!");
     } finally {
         // Ensures that the client will close when you finish/error
         // await client.close();
@@ -495,6 +501,6 @@ app.get('/', (req, res) => {
 })
 
 app.listen(port, () => {
-    // console.log(`PETS ADOPTION SERVER IS RUNNING on ${port}`);
+    console.log(`PETS ADOPTION SERVER IS RUNNING on ${port}`);
 })
 
