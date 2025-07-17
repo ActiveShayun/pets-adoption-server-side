@@ -134,6 +134,11 @@ async function run() {
             res.send(result)
         })
 
+        app.get('/users-pagination', async (req, res) => {
+            const total = await userCollection.estimatedDocumentCount();
+            res.send({ total })
+        })
+
         app.get('/users-Admin/:email', async (req, res) => {
             const email = req.params.email;
 
@@ -158,7 +163,7 @@ async function run() {
             const query = { email: email }
             // console.log('user emmmail', query);
             const result = await userCollection.findOne(query)
-    console.log('verifyToken', token);
+            console.log('verifyToken', token);
             res.send(result)
         })
 
@@ -175,7 +180,13 @@ async function run() {
         })
 
         app.get('/all-users', async (req, res) => {
-            const result = await userCollection.find().toArray();
+            const page = parseInt(req.query.page)
+            const size = parseInt(req.query.size)
+            console.log('pagination query', page, size)
+            const result = await userCollection.find()
+                .skip(page * size)
+                .limit(size)
+                .toArray();
             res.send(result)
         })
 
@@ -523,7 +534,7 @@ async function run() {
         })
 
         // status and analytics
-        app.get('/admin-status', verifyToken, async (req, res) => {
+        app.get('/admin-status', async (req, res) => {
             const users = await userCollection.estimatedDocumentCount();
             const allPets = await petsCollections.estimatedDocumentCount();
             const adoptedRequest = await adoptedRequestCollections.estimatedDocumentCount();
