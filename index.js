@@ -158,6 +158,7 @@ async function run() {
             const query = { email: email }
             // console.log('user emmmail', query);
             const result = await userCollection.findOne(query)
+    console.log('verifyToken', token);
             res.send(result)
         })
 
@@ -594,8 +595,8 @@ async function run() {
         })
         // Send a ping to confirm a successful connection
 
-        await client.db("admin").command({ ping: 1 });
-        console.log("Pinged your deployment. You successfully connected to MongoDB!");
+        // await client.db("admin").command({ ping: 1 });
+        // console.log("Pinged your deployment. You successfully connected to MongoDB!");
     } finally {
         // Ensures that the client will close when you finish/error
         // await client.close();
@@ -609,6 +610,6 @@ app.get('/', (req, res) => {
 })
 
 app.listen(port, () => {
-    console.log(`PETS ADOPTION SERVER IS RUNNING on ${port}`);
+    // console.log(`PETS ADOPTION SERVER IS RUNNING on ${port}`);
 })
 
