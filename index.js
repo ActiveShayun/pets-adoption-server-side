@@ -20,7 +20,23 @@ app.use(cors({
 app.use(express.json())
 app.use(cookieParser());
 
+const verifyToken = (req, res, next) => {
+    const token = req?.cookies?.token
+    console.log('verifyToken', token);
 
+    if (!token) {
+        return req.status(401).send({ message: 'unauthorized access' })
+    }
+
+    jwt.verify(token, process.env.SECRET_ACCESS_TOKEN, (err, decoded) => {
+        if (err) {
+            return res.status(401).send({ message: 'unauthorized access' })
+        }
+        req.user = decoded
+        next()
+    })
+
+}
 
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.xlnwpku.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
 
@@ -43,6 +59,7 @@ async function run() {
         const userCollection = client.db('PetsDB').collection('users')
         const donationCollection = client.db('PetsDB').collection('CreateDonation')
         const provideDonationCollection = client.db('PetsDB').collection('provideDonation')
+        const paymentsCollection = client.db('PetsDB').collection('payments')
         const reviewCollection = client.db('PetsDB').collection('allReview')
 
         // jwt related api
@@ -59,31 +76,41 @@ async function run() {
                 .send({ success: true })
         })
 
-        const verifyToken = (req, res, next) => {
+        app.post('/logout', (req, res) => {
+            res.clearCookie('token', {
+                httpOnly: true,
+                secure: false
+            }).send({ success: true })
+        })
 
-            if (!req.headers.authorization) {
-                return res.status(401).send({ message: 'Unauthorized access: No token provided' });
-            }
-            const token = req.headers.authorization.split(' ')[1];
-            console.log('token', token);
+        // const verifyToken = (req, res, next) => {
 
-            jwt.verify(token, process.env.SECRET_ACCESS_TOKEN, (err, decoded) => {
-                if (err) {
-                    return res.status(401).send({ message: 'Unauthorized access: Invalid token' });
-                }
+        //     if (!req.headers.authorization) {
+        //         return res.status(401).send({ message: 'Unauthorized access: No token provided' });
+        //     }
+        //     const token = req.headers.authorization.split(' ')[1];
+        //     // console.log('token', token);
 
-                req.decoded = decoded;
-                next();
-            });
+        //     jwt.verify(token, process.env.SECRET_ACCESS_TOKEN, (err, decoded) => {
+        //         if (err) {
+        //             return res.status(401).send({ message: 'Unauthorized access: Invalid token' });
+        //         }
 
-        }
+        //         req.decoded = decoded;
+        //         next();
+        //     });
+
+        // }
 
         // payment related api
         app.post('/create-payment-intent', async (req, res) => {
-            const { prise } = req.body;
-            const amount = parseInt(prise * 100);
-            // console.log('amount', amount);
+            const { price } = req.body;
+            const amount = Math.round(Number(price) * 100);
+            console.log(amount, 'amount backend');
 
+            if (isNaN(amount)) {
+                return res.status(400).json({ error: 'invalid amount provided' })
+            }
             const paymentIntent = await stripe.paymentIntents.create({
                 amount: amount,
                 currency: 'usd',
@@ -91,7 +118,7 @@ async function run() {
             })
 
             res.send({
-                clientsSecret: paymentIntent.client_secret
+                clientSecret: paymentIntent.client_secret
             })
         })
 
@@ -129,7 +156,7 @@ async function run() {
         app.get('/single-User', async (req, res) => {
             const email = req.query.email;
             const query = { email: email }
-            console.log('user emmmail', query);
+            // console.log('user emmmail', query);
             const result = await userCollection.findOne(query)
             res.send(result)
         })
@@ -195,10 +222,15 @@ async function run() {
             res.send(result)
         })
 
-        app.get('/my-added-pets', async (req, res) => {
+        app.get('/my-added-pets', verifyToken, async (req, res) => {
             const email = req?.query?.email
             const query = { email: email };
-            console.log('cookie', req.cookies);
+            console.log('req?.query?.email', email);
+            console.log('req.user.email', req?.user?.email);
+
+            // if (email !== req.user.email) {
+            //     return res.status(403).send({ message: 'forbidden access' })
+            // }
             const totalPage = parseInt(req?.query?.totalPage)
             // console.log('page', totalPage);
             const currentPage = parseInt(req?.query?.currentPage);
@@ -443,6 +475,26 @@ async function run() {
 
         })
 
+        app.post('/payments', async (req, res) => {
+            const payments = req.body;
+            const result = await paymentsCollection.insertOne(payments);
+            // delete donation card
+            const query = {
+                _id: {
+                    $in: payments.cardId.map(id => new ObjectId(id))
+                }
+            }
+            const deletedResult = await provideDonationCollection.deleteMany(query)
+            res.send({ result, deletedResult })
+        })
+
+        app.get('/payments', async (req, res) => {
+            const email = req?.query?.email
+            const query = { email: email }
+            const result = await paymentsCollection.find(query).sort({ price: 1 }).toArray()
+            res.send(result)
+        })
+
         app.get('/my-donations/:email', async (req, res) => {
             const email = req.params.email;
             const query = { donnerEmail: email }
@@ -470,19 +522,75 @@ async function run() {
         })
 
         // status and analytics
-        app.get('/admin-status', async (req, res) => {
+        app.get('/admin-status', verifyToken, async (req, res) => {
             const users = await userCollection.estimatedDocumentCount();
             const allPets = await petsCollections.estimatedDocumentCount();
-            const donationCampaigns = await donationCollection.estimatedDocumentCount();
             const adoptedRequest = await adoptedRequestCollections.estimatedDocumentCount();
             const provideDonationCollections = await provideDonationCollection.estimatedDocumentCount();
-            res.send({
-                users,
-                allPets,
-                donationCampaigns,
-                adoptedRequest,
-                provideDonationCollections
-            })
+
+            const result = await paymentsCollection.aggregate([
+                {
+                    $group: {
+                        _id: null,
+                        totalRevenue: {
+                            $sum: '$price'
+                        }
+                    }
+                }
+            ]).toArray()
+
+            const totalDonation = result?.length > 0 ? result[0].totalRevenue : 0
+            res.send(
+                [{
+                    users,
+                    allPets,
+                    totalDonation,
+                    adoptedRequest,
+                    provideDonationCollections
+                }]
+            )
+        })
+
+        app.get('/donation-state', async (req, res) => {
+            const result = await paymentsCollection.aggregate([
+                {
+                    $unwind: '$donationId'
+                },
+                {
+                    $addFields: {
+                        donationId: { $toObjectId: '$donationId' }
+                    }
+                },
+                {
+                    $lookup: {
+                        from: 'CreateDonation',
+                        localField: 'donationId',
+                        foreignField: '_id',
+                        as: 'allDonation'
+
+                    }
+                },
+                {
+                    $unwind: '$allDonation'
+                },
+                {
+                    $group: {
+                        _id: '$allDonation.category',
+                        quantity: { $sum: 1 },
+                        revenue: { $sum: '$allDonation.amount' }
+                    }
+                },
+                {
+                    $project: {
+                        _id: 0,
+                        category: '$_id',
+                        quantity: '$quantity',
+                        revenue: '$revenue'
+                    }
+                }
+
+            ]).toArray()
+            res.send(result)
         })
         // Send a ping to confirm a successful connection
 
