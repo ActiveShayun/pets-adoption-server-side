@@ -25,7 +25,7 @@ const verifyToken = (req, res, next) => {
     console.log('verifyToken', token);
 
     if (!token) {
-        return req.status(401).send({ message: 'unauthorized access' })
+        return res.status(401).send({ message: 'unauthorized access' })
     }
 
     jwt.verify(token, process.env.SECRET_ACCESS_TOKEN, (err, decoded) => {
@@ -35,7 +35,6 @@ const verifyToken = (req, res, next) => {
         req.user = decoded
         next()
     })
-
 }
 
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.xlnwpku.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
@@ -125,6 +124,7 @@ async function run() {
         // user related api
         app.post('/users', async (req, res) => {
             const users = req.body;
+            console.log('users', users);
             const query = { email: users.email }
             const allReadyExits = await userCollection.findOne(query)
             if (allReadyExits) {
@@ -163,7 +163,6 @@ async function run() {
             const query = { email: email }
             // console.log('user emmmail', query);
             const result = await userCollection.findOne(query)
-            console.log('verifyToken', token);
             res.send(result)
         })
 
@@ -213,6 +212,22 @@ async function run() {
             res.send(result)
         })
 
+        app.get('/allPets-pagination', async (req, res) => {
+            const total = await petsCollections.estimatedDocumentCount()
+            res.send({ total })
+        })
+
+        app.get('/admin-allPets', async (req, res) => {
+            const page = parseInt(req.query.page)
+            const size = parseInt(req.query.size)
+            console.log('pagination all pats api ', page, size);
+            const result = await petsCollections.find()
+                .skip(page * size)
+                .limit(size)
+                .toArray()
+            res.send(result)
+        })
+
         app.get('/AllPets', async (req, res) => {
             const search = req.query.search;
             const category = req.query.category;
@@ -234,27 +249,21 @@ async function run() {
             res.send(result)
         })
 
-        app.get('/my-added-pets', verifyToken, async (req, res) => {
+        app.get('/my-added-pets', async (req, res) => {
             const email = req?.query?.email
             const query = { email: email };
-            console.log('req?.query?.email', email);
-            console.log('req.user.email', req?.user?.email);
-
-            // if (email !== req.user.email) {
-            //     return res.status(403).send({ message: 'forbidden access' })
-            // }
-            const totalPage = parseInt(req?.query?.totalPage)
-            // console.log('page', totalPage);
-            const currentPage = parseInt(req?.query?.currentPage);
-            // console.log(currentPage);
-
-            const result = await petsCollections.find(query)
-                .skip(totalPage * currentPage)
-                .limit(currentPage)
-                .toArray();
-            // console.log('my-added-pets', result);
+            // const page = parseInt(req?.query?.page);
+            // const size = parseInt(req?.query?.size);
+            const result = await petsCollections.find(query).toArray();
             res.send(result)
         })
+
+        // pagination my pets 
+        app.get('/pets-pagination', async (req, res) => {
+            const result = await petsCollections.estimatedDocumentCount()
+            res.send({ result })
+        })
+
 
         // adoption request api
         app.post('/adoption-request', async (req, res) => {
@@ -315,18 +324,7 @@ async function run() {
             res.send(result)
         })
 
-        // chance adoption status
-        app.patch('/adopted-status-chance/:id', async (req, res) => {
-            const id = req.params.id;
-            const query = { _id: new ObjectId(id) };
-            const updateDoc = {
-                $set: {
-                    adopted: 'Adopted'
-                }
-            }
-            const result = await petsCollections.updateOne(query, updateDoc);
-            res.send(result)
-        })
+
         // chance adoption status
         app.patch('/accepts-adopted-request/:id', async (req, res) => {
             const id = req.params.id;
@@ -339,8 +337,30 @@ async function run() {
             const result = await adoptedRequestCollections.updateOne(query, updateDoc);
             res.send(result)
         })
+        app.patch('/unAdopted-request/:id', async (req, res) => {
+            const id = req.params.id;
+            const query = { _id: new ObjectId(id) };
+            const updateDoc = {
+                $set: {
+                    adopted: 'UnAdopted'
+                }
+            }
+            const result = await adoptedRequestCollections.updateOne(query, updateDoc);
+            res.send(result)
+        })
 
         // accepts adoption request
+        app.patch('/adopted-status-chance/:id', async (req, res) => {
+            const id = req.params.id;
+            const query = { _id: new ObjectId(id) };
+            const updateDoc = {
+                $set: {
+                    adopted: 'Adopted'
+                }
+            }
+            const result = await petsCollections.updateOne(query, updateDoc);
+            res.send(result)
+        })
         app.patch('/adopted-request-cancel/:id', async (req, res) => {
             const id = req.params.id;
             const filter = { _id: new ObjectId(id) };
@@ -365,15 +385,10 @@ async function run() {
 
         })
 
-        // pagination my pets 
-        app.get('/pets-count', async (req, res) => {
-            const result = await petsCollections.estimatedDocumentCount()
-            res.send({ result })
-        })
 
         app.get('/adoptionRequest', async (req, res) => {
             const email = req?.query?.email;
-            const query = { petsEmail: email };
+            const query = { email };
             const result = await adoptedRequestCollections.find(query).toArray();
             // console.log('adoptionRequest', result, email);
             res.send(result)
@@ -387,15 +402,46 @@ async function run() {
         })
 
         app.get('/all-donation', async (req, res) => {
-            const result = await donationCollection.find().toArray();
+            const page = parseInt(req?.query?.page)
+            const size = parseInt(req?.query?.size)
+            const result = await donationCollection.find()
+                .skip(page * size)
+                .limit(size)
+                .toArray();
             res.send(result)
         })
 
-        app.get('/my-donation/:email', async (req, res) => {
-            const email = req.params.email;
-            const query = { donationEmail: email };
-            const result = await donationCollection.find(query).toArray();
-            res.send(result)
+        app.get('/donation-pagination', async (req, res) => {
+            const total = await donationCollection.estimatedDocumentCount()
+            res.send({ total })
+        })
+
+        app.get('/my-donation', async (req, res) => {
+            try {
+                const email = req.query.email;
+                const page = parseInt(req.query.page)
+                const size = parseInt(req.query.size)
+
+                if (!email) {
+                    return res.status(400).send({ error: "Email query parameter is required." });
+                }
+
+                const query = { donationEmail: email };
+                const result = await donationCollection.find(query)
+                    .skip(page * size)
+                    .limit(size)
+                    .toArray();
+
+                res.send(result);
+            } catch (error) {
+                res.status(500).send({ error: "Something went wrong." });
+            }
+        });
+
+
+        app.get('/my-donation-pagination/:email', async (req, res) => {
+            const result = await donationCollection.estimatedDocumentCount()
+            res.send({ result })
         })
 
         app.get('/details-donation/:id', async (req, res) => {
@@ -464,13 +510,15 @@ async function run() {
         // provide- donation api
         app.post('/provide-donation', async (req, res) => {
             const provide_donation = req.body;
-            const { donationAmount } = req.body;
+            const { donationAmount, donationId } = req.body;
             const presentAmount = parseInt(donationAmount)
-            // console.log('donationAmount', presentAmount);
+            console.log('donationAmount', presentAmount);
 
-            const id = req.query.id
-            // console.log('donationID', id);
-            const query = { _id: new ObjectId(id) };
+            const id = donationId
+            console.log('donationID', id);
+            const query = { donationId: donationId };
+            const singleDonation = await provideDonationCollection.findOne(query)
+            console.log('singleDonation', singleDonation);
             const updateAmount = {
                 $inc: {
                     amount: + presentAmount
@@ -501,10 +549,18 @@ async function run() {
         })
 
         app.get('/payments', async (req, res) => {
+            const page = parseInt(req?.query.page)
+            const size = parseInt(req?.query.size)
+            console.log('payments pagination page', page);
+            console.log('payments pagination size', size);
             const email = req?.query?.email
             const query = { email: email }
-            const result = await paymentsCollection.find(query).sort({ price: 1 }).toArray()
-            res.send(result)
+            const total = await paymentsCollection.estimatedDocumentCount()
+            const result = await paymentsCollection.find(query)
+                .skip(page * size)
+                .limit(size)
+                .sort({ price: 1 }).toArray()
+            res.send({ result, total })
         })
 
         app.get('/my-donations/:email', async (req, res) => {
@@ -606,8 +662,8 @@ async function run() {
         })
         // Send a ping to confirm a successful connection
 
-        // await client.db("admin").command({ ping: 1 });
-        // console.log("Pinged your deployment. You successfully connected to MongoDB!");
+        await client.db("admin").command({ ping: 1 });
+        console.log("Pinged your deployment. You successfully connected to MongoDB!");
     } finally {
         // Ensures that the client will close when you finish/error
         // await client.close();
@@ -621,6 +677,6 @@ app.get('/', (req, res) => {
 })
 
 app.listen(port, () => {
-    // console.log(`PETS ADOPTION SERVER IS RUNNING on ${port}`);
+    console.log(`PETS ADOPTION SERVER IS RUNNING on ${port}`);
 })
 
