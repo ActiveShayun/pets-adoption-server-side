@@ -229,16 +229,21 @@ async function run() {
         })
 
         app.get('/AllPets', async (req, res) => {
-            const search = req.query.search;
-            const category = req.query.category;
-            // console.log(category);
-            const filter = {
-                ...(search && { petsName: { $regex: search, $options: 'i' } }
-                ),
-                ...(category && { petsCategory: category })
+            const { search = '', category = '', sort = 'asc' } = req?.query;
+            console.log(sort);
+
+            const sortBy = sort === 'asc' ? 1 : -1
+            const filter = {}
+            if (search) {
+                filter.petsName = { $regex: search, $options: 'i' }
+            }
+            if (category) {
+                filter.petsCategory = category
             }
 
-            const result = await petsCollections.find(filter).toArray();
+            const result = await petsCollections.find(filter)
+                .sort({ petsAge: sortBy })
+                .toArray();
             res.send(result)
         })
 
