@@ -229,8 +229,10 @@ async function run() {
         })
 
         app.get('/AllPets', async (req, res) => {
-            const { search = '', category = '', sort = 'asc' } = req?.query;
+            const { search = '', category = '', sort = 'asc',} = req?.query;
             console.log(sort);
+            const take = parseInt(req.query.take) || 10
+            const skip = parseInt(req.query.skip) || 0
 
             const sortBy = sort === 'asc' ? 1 : -1
             const filter = {}
@@ -242,6 +244,8 @@ async function run() {
             }
 
             const result = await petsCollections.find(filter)
+                .skip(skip)
+                .limit(take)
                 .sort({ petsAge: sortBy })
                 .toArray();
             res.send(result)
