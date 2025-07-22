@@ -228,8 +228,13 @@ async function run() {
             res.send(result)
         })
 
+        app.get('/allPetsHome', async (req, res) => {
+            const result = await petsCollections.find().toArray();
+            res.send(result)
+        })
+
         app.get('/AllPets', async (req, res) => {
-            const { search = '', category = '', sort = 'asc',} = req?.query;
+            const { search = '', category = '', sort = 'asc', } = req?.query;
             console.log(sort);
             const take = parseInt(req.query.take) || 10
             const skip = parseInt(req.query.skip) || 0
