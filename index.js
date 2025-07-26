@@ -64,7 +64,7 @@ async function run() {
         // jwt related api
         app.post('/jwt', (req, res) => {
             const user = req.body;
-            console.log('SECRET_ACCESS_TOKEN', process.env.SECRET_ACCESS_TOKEN);
+            // console.log('SECRET_ACCESS_TOKEN', process.env.SECRET_ACCESS_TOKEN);
             const taken = jwt.sign(user, process.env.SECRET_ACCESS_TOKEN, {
                 expiresIn: '5h'
             })
